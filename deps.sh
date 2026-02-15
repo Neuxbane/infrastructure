@@ -15,33 +15,28 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Configuration
-LOG_DIR="/var/log/infra-setup"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-LOG_FILE="${LOG_DIR}/install_${TIMESTAMP}.log"
-
 ################################################################################
 # UTILITY FUNCTIONS
 ################################################################################
 
 log() {
     local message="[$(date +'%Y-%m-%d %H:%M:%S')] $1"
-    echo -e "${BLUE}${message}${NC}" | tee -a "$LOG_FILE"
+    echo -e "${BLUE}${message}${NC}"
 }
 
 log_success() {
     local message="✅ $1"
-    echo -e "${GREEN}${message}${NC}" | tee -a "$LOG_FILE"
+    echo -e "${GREEN}${message}${NC}"
 }
 
 log_error() {
     local message="❌ $1"
-    echo -e "${RED}${message}${NC}" | tee -a "$LOG_FILE"
+    echo -e "${RED}${message}${NC}"
 }
 
 log_warning() {
     local message="⚠️  $1"
-    echo -e "${YELLOW}${message}${NC}" | tee -a "$LOG_FILE"
+    echo -e "${YELLOW}${message}${NC}"
 }
 
 check_root() {
@@ -76,9 +71,8 @@ command_exists() {
 ################################################################################
 
 init_environment() {
-    mkdir -p "$LOG_DIR"
     log "Initializing environment..."
-    apt-get update -y >> "$LOG_FILE" 2>&1
+    apt-get update -y
     apt-get install -y \
         curl \
         git \
@@ -86,7 +80,7 @@ init_environment() {
         ca-certificates \
         lsb-release \
         software-properties-common \
-        build-essential >> "$LOG_FILE" 2>&1
+        build-essential
     log_success "Base dependencies installed."
 }
 
@@ -99,7 +93,7 @@ install_docker() {
 
     # Add Docker's official GPG key:
     install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/$OS_ID/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg >> "$LOG_FILE" 2>&1
+    curl -fsSL https://download.docker.com/linux/$OS_ID/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     chmod a+r /etc/apt/keyrings/docker.gpg
 
     # Add the repository to Apt sources:
@@ -107,11 +101,11 @@ install_docker() {
       "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$OS_ID \
       $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-    apt-get update -y >> "$LOG_FILE" 2>&1
-    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin >> "$LOG_FILE" 2>&1
+    apt-get update -y
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     
-    systemctl enable docker >> "$LOG_FILE" 2>&1
-    systemctl start docker >> "$LOG_FILE" 2>&1
+    systemctl enable docker
+    systemctl start docker
 
     # Add current user to docker group if running via sudo
     if [ -n "$SUDO_USER" ]; then
@@ -138,7 +132,7 @@ install_nvm() {
 
     log "Target user: $TARGET_USER (Home: $TARGET_HOME)"
     
-    sudo -u "$TARGET_USER" bash -c "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/$LATEST_NVM/install.sh | bash" >> "$LOG_FILE" 2>&1
+    sudo -u "$TARGET_USER" bash -c "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/$LATEST_NVM/install.sh | bash"
     
     log_success "NVM $LATEST_NVM installed for $TARGET_USER."
 }
@@ -150,9 +144,9 @@ install_nginx() {
         return
     fi
     
-    apt-get install -y nginx >> "$LOG_FILE" 2>&1
-    systemctl enable nginx >> "$LOG_FILE" 2>&1
-    systemctl start nginx >> "$LOG_FILE" 2>&1
+    apt-get install -y nginx
+    systemctl enable nginx
+    systemctl start nginx
     log_success "Nginx installed and started."
 }
 
@@ -166,13 +160,13 @@ install_certbot() {
     # Using snap is the recommended way for most Debian/Ubuntu systems
     if command_exists snap; then
         log "Using snap for Certbot installation..."
-        snap install core >> "$LOG_FILE" 2>&1
-        snap refresh core >> "$LOG_FILE" 2>&1
-        snap install --classic certbot >> "$LOG_FILE" 2>&1
-        ln -sf /snap/bin/certbot /usr/bin/certbot >> "$LOG_FILE" 2>&1
+        snap install core
+        snap refresh core
+        snap install --classic certbot
+        ln -sf /snap/bin/certbot /usr/bin/certbot
     else
         log_warning "Snap not found, falling back to apt-get for Certbot..."
-        apt-get install -y certbot python3-certbot-nginx >> "$LOG_FILE" 2>&1
+        apt-get install -y certbot python3-certbot-nginx
     fi
     
     log_success "Certbot installed successfully."
@@ -207,7 +201,7 @@ verify_all() {
     if [ $errors -eq 0 ]; then
         echo -e "\n${GREEN}All components installed and verified!${NC}"
     else
-        echo -e "\n${RED}Installation completed with $errors error(s). Check $LOG_FILE for details.${NC}"
+        echo -e "\n${RED}Installation completed with $errors error(s).${NC}"
     fi
 }
 
@@ -236,7 +230,6 @@ main() {
     echo "2. Run 'source ~/.bashrc' (or reopen terminal) to use NVM."
     echo "3. Configure your Nginx sites in /etc/nginx/sites-available/"
     echo "4. Use 'certbot --nginx' to obtain SSL certificates."
-    echo -e "\nLog file: $LOG_FILE"
 }
 
 main "$@"
