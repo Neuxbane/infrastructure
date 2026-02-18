@@ -46,7 +46,28 @@ location = /502.html {
 
 // Ensure meta dir exists
 if (!fs.existsSync(NGINX_META_DIR)) {
-    fs.mkdirSync(NGINX_META_DIR, { recursive: true });
+    try {
+        fs.mkdirSync(NGINX_META_DIR, { recursive: true });
+    } catch (e) {
+        console.error('Failed to create NGINX_META_DIR:', e);
+    }
+}
+
+// Ensure config dirs exist
+if (!fs.existsSync(NGINX_CONF_DIR)) {
+    try {
+        fs.mkdirSync(NGINX_CONF_DIR, { recursive: true });
+    } catch (e) {
+        console.error('Failed to create NGINX_CONF_DIR:', e);
+    }
+}
+
+if (!fs.existsSync(NGINX_ENABLED_DIR)) {
+    try {
+        fs.mkdirSync(NGINX_ENABLED_DIR, { recursive: true });
+    } catch (e) {
+        console.error('Failed to create NGINX_ENABLED_DIR:', e);
+    }
 }
 
 // Initial snippet check
@@ -56,7 +77,7 @@ ensureNginxSnippet();
 router.post('/test-connection', (req, res) => {
     const { targetIp, targetPort, useHttps } = req.body;
     const protocol = useHttps ? https : http;
-    
+
     let responded = false;
     const sendResponse = (data, statusCode = 200) => {
         if (!responded) {
@@ -65,30 +86,30 @@ router.post('/test-connection', (req, res) => {
         }
     };
 
-    const request = protocol.get({ 
-        host: targetIp, 
-        port: targetPort, 
-        path: '/', 
+    const request = protocol.get({
+        host: targetIp,
+        port: targetPort,
+        path: '/',
         timeout: 5000, // Increase to 5s for slower containers
-        rejectUnauthorized: false 
+        rejectUnauthorized: false
     }, (response) => {
-        sendResponse({ 
-            success: true, 
-            status: response.statusCode, 
+        sendResponse({
+            success: true,
+            status: response.statusCode,
             message: `Connection successful! Backend responded with HTTP ${response.statusCode}`,
             headers: response.headers
         });
         response.resume();
     });
-    
+
     request.on('error', (error) => {
-        sendResponse({ 
-            success: false, 
+        sendResponse({
+            success: false,
             message: `Connection failed: ${error.message}`,
             suggestion: error.code === 'ECONNREFUSED' ? 'Nothing is listening on this port. Try checking if the container is running.' : null
         }, 200); // We return 200 so the frontend can display the error message nicely
     });
-    
+
     request.on('timeout', () => {
         request.destroy();
         sendResponse({ success: false, message: 'Connection timeout after 5 seconds' }, 200);
@@ -130,7 +151,7 @@ server {
             fs.writeFileSync(filePath, defaultConfig);
             console.log(`Created default config for ${domain}`);
         }
-        
+
         let data = {};
         if (fs.existsSync(metaPath)) {
             data = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
@@ -148,7 +169,7 @@ server {
             const content = fs.readFileSync(filePath, 'utf8');
             const targetIpMatch = content.match(/proxy_pass http:\/\/(.+):(\d+);/);
             const hasSsl = content.includes('listen 443') || content.includes('ssl_certificate');
-            
+
             data = {
                 domain: domain,
                 advancedMode: false,
@@ -162,7 +183,7 @@ server {
                 rawContent: content
             };
         }
-        
+
         res.json(data);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -172,7 +193,7 @@ server {
 // Create/Update configuration
 router.post('/configs', (req, res) => {
     const { domain, locations, useSsl, email, advancedMode, rawContent, clientMaxBodySize, originalDomain } = req.body;
-    
+
     // Ensure snippet exists before doing anything that might trigger nginx -t
     ensureNginxSnippet();
 
@@ -182,7 +203,7 @@ router.post('/configs', (req, res) => {
             const oldFilePath = path.join(NGINX_CONF_DIR, `${originalDomain}.conf`);
             const oldEnabledPath = path.join(NGINX_ENABLED_DIR, `${originalDomain}.conf`);
             const oldMetaPath = path.join(NGINX_META_DIR, `${originalDomain}.json`);
-            
+
             if (fs.existsSync(oldEnabledPath)) fs.unlinkSync(oldEnabledPath);
             if (fs.existsSync(oldFilePath)) fs.unlinkSync(oldFilePath);
             if (fs.existsSync(oldMetaPath)) fs.unlinkSync(oldMetaPath);
@@ -345,41 +366,41 @@ ${locationsConfig}
                         if (certError) {
                             return res.status(500).json({ error: 'SSL request failed', details: stderr });
                         }
-                        
+
                         // If successfully obtained cert, regenerate the config file with SSL enabled
                         // (This overwrites Certbot's modifications with our clean template using sslExists=true)
                         try {
                             // Check if certs exist now
                             const newCertPath = `/etc/letsencrypt/live/${domain}/fullchain.pem`;
                             const newKeyPath = `/etc/letsencrypt/live/${domain}/privkey.pem`;
-                            
+
                             if (fs.existsSync(newCertPath) && fs.existsSync(newKeyPath)) {
                                 console.log('Certificate obtained, regenerating Nginx config...');
-                                
+
                                 // RE-GENERATE CONFIG (reuse variables from scope)
                                 // Note: We duplicate the generation logic here or call a helper function. 
                                 // Since logic is inline, we will re-write content with sslExists=true directives hardcoded/interpolated
-                                
+
                                 // 1. Rebuild locations block (same as above)
                                 // We can just use the 'config' variable but replace commented SSL lines?
                                 // Better to just replace the specific markers we added.
-                                
+
                                 let newConfig = config;
                                 // Enable SSL Listen
                                 newConfig = newConfig.replace('# listen 443 ssl http2; # Will be enabled after SSL certificate generation', 'listen 443 ssl http2;');
-                                
+
                                 // Enable SSL Config Block
                                 newConfig = newConfig.replace('# SSL Config (Certbot will manage these after certificate generation)', `# SSL Configuration
     ssl_certificate ${newCertPath};
     ssl_certificate_key ${newKeyPath};`);
-    
+
                                 // Enable Redirect
                                 newConfig = newConfig.replace('# HTTP to HTTPS redirect will be enabled after SSL setup', `if ($scheme = http) {
         return 301 https://$host$request_uri;
     }`);
 
                                 fs.writeFileSync(filePath, newConfig);
-                                
+
                                 // Reload again to apply our clean SSL config
                                 exec('systemctl reload nginx', () => {
                                     res.json({ message: 'Nginx configuration updated and SSL enabled' });
