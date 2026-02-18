@@ -113,7 +113,23 @@ router.get('/configs/:domain', (req, res) => {
     const metaPath = path.join(NGINX_META_DIR, `${domain}.json`);
 
     try {
-        if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Config not found' });
+        if (!fs.existsSync(filePath)) {
+            // Create a default configuration if it doesn't exist
+            const defaultConfig = `
+server {
+    listen 80;
+    server_name ${domain};
+    
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+`;
+            fs.writeFileSync(filePath, defaultConfig);
+            console.log(`Created default config for ${domain}`);
+        }
         
         let data = {};
         if (fs.existsSync(metaPath)) {
