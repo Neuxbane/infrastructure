@@ -10,6 +10,23 @@ const NGINX_CONF_DIR = process.env.NGINX_CONF_DIR || '/etc/nginx/sites-available
 const NGINX_ENABLED_DIR = process.env.NGINX_ENABLED_DIR || '/etc/nginx/sites-enabled';
 const NGINX_META_DIR = process.env.NGINX_META_DIR || '/etc/nginx/infraflow-meta';
 
+// Helper to ensure directories exist
+const ensureDir = (dirPath) => {
+    if (!fs.existsSync(dirPath)) {
+        try {
+            fs.mkdirSync(dirPath, { recursive: true });
+            console.log('Created directory:', dirPath);
+        } catch (err) {
+            console.error('Failed to create directory:', dirPath, err);
+        }
+    }
+};
+
+// Initial config dirs/snippet setup
+ensureDir(NGINX_CONF_DIR);
+ensureDir(NGINX_ENABLED_DIR);
+ensureDir(NGINX_META_DIR);
+
 // Ensure required Nginx structures and snippets exist
 const ensureNginxSnippet = () => {
     const SNIPPET_DIR = '/etc/nginx/snippets';
@@ -32,9 +49,7 @@ location = /502.html {
 `;
 
     try {
-        if (!fs.existsSync(SNIPPET_DIR)) {
-            fs.mkdirSync(SNIPPET_DIR, { recursive: true });
-        }
+        ensureDir(SNIPPET_DIR);
 
         // Always ensure the snippet is up to date with the correct path
         fs.writeFileSync(SNIPPET_PATH, snippetContent.trim());
@@ -44,33 +59,7 @@ location = /502.html {
     }
 };
 
-// Ensure meta dir exists
-if (!fs.existsSync(NGINX_META_DIR)) {
-    try {
-        fs.mkdirSync(NGINX_META_DIR, { recursive: true });
-    } catch (e) {
-        console.error('Failed to create NGINX_META_DIR:', e);
-    }
-}
-
-// Ensure config dirs exist
-if (!fs.existsSync(NGINX_CONF_DIR)) {
-    try {
-        fs.mkdirSync(NGINX_CONF_DIR, { recursive: true });
-    } catch (e) {
-        console.error('Failed to create NGINX_CONF_DIR:', e);
-    }
-}
-
-if (!fs.existsSync(NGINX_ENABLED_DIR)) {
-    try {
-        fs.mkdirSync(NGINX_ENABLED_DIR, { recursive: true });
-    } catch (e) {
-        console.error('Failed to create NGINX_ENABLED_DIR:', e);
-    }
-}
-
-// Initial snippet check
+// Start initial snippet check
 ensureNginxSnippet();
 
 // Test backend connection
@@ -194,7 +183,10 @@ server {
 router.post('/configs', (req, res) => {
     const { domain, locations, useSsl, email, advancedMode, rawContent, clientMaxBodySize, originalDomain } = req.body;
 
-    // Ensure snippet exists before doing anything that might trigger nginx -t
+    // Ensure directories and snippet exist before doing anything that might trigger nginx -t
+    ensureDir(NGINX_CONF_DIR);
+    ensureDir(NGINX_ENABLED_DIR);
+    ensureDir(NGINX_META_DIR);
     ensureNginxSnippet();
 
     // Handle rename: if originalDomain is provided and differs from domain, remove old config
