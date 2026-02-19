@@ -122,6 +122,10 @@ router.get('/configs/:domain', (req, res) => {
     const filePath = path.join(NGINX_CONF_DIR, `${domain}.conf`);
     const metaPath = path.join(NGINX_META_DIR, `${domain}.json`);
 
+    // Ensure directory exists
+    ensureDir(NGINX_CONF_DIR);
+    ensureDir(NGINX_META_DIR);
+
     try {
         if (!fs.existsSync(filePath)) {
             // Create a default configuration if it doesn't exist

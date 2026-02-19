@@ -10,6 +10,7 @@ services:
         external_url 'https://git.exxo.top'
         nginx['listen_port'] = 80
         nginx['listen_https'] = false
+        nginx['custom_gitlab_server_config'] = 'if ($http_host != "git.exxo.top") { return 301 https://git.exxo.top$request_uri; }'
         # Add any other GitLab configurations here
     volumes:
       - './config:/etc/gitlab'
