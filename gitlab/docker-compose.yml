@@ -18,7 +18,7 @@ services:
       - /var/opt/gitlab/gitlab-rails/tmp
     networks:
       gitlab_net:
-        ipv4_address: 10.255.255.20 # <--- Using IP in the 10.255.255.x range
+        ipv4_address: 10.255.255.20
   gitlab-runner:
     image: 'gitlab/gitlab-runner:latest'
     restart: always
@@ -29,6 +29,8 @@ services:
       - '/var/run/docker.sock:/var/run/docker.sock'
     environment:
       - CI_SERVER_URL=https://git.exxo.top
+    extra_hosts:
+      - "git.exxo.top:10.255.255.1"
     networks:
       gitlab_net:
         ipv4_address: 10.255.255.21

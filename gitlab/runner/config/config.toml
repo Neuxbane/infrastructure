@@ -1,0 +1,20 @@
+concurrent = 1
+check_interval = 0
+shutdown_timeout = 0
+
+[session_server]
+  session_timeout = 1800
+
+[[runners]]
+  name = "3d6ab38d55a1"
+  url = "http://10.255.255.20"
+  id = 1
+  token = "glrt-5tyqJNs395k6mvshGy756Wc6egpvOjEKdDoyCnU6eQ8.01.171s7cpz6"
+  token_obtained_at = 2026-02-25T11:21:43Z
+  token_expires_at = 0001-01-01T00:00:00Z
+  executor = "shell"
+  [runners.cache]
+    MaxUploadedArchiveSize = 0
+    [runners.cache.s3]
+    [runners.cache.gcs]
+    [runners.cache.azure]
