@@ -8,6 +8,8 @@ services:
     environment:
       GITLAB_OMNIBUS_CONFIG: |
         external_url 'https://git.exxo.top'
+        nginx['listen_port'] = 80
+        nginx['listen_https'] = false
     volumes:
       - './config:/etc/gitlab'
       - './logs:/var/log/gitlab'
@@ -17,6 +19,19 @@ services:
     networks:
       gitlab_net:
         ipv4_address: 10.255.255.20 # <--- Using IP in the 10.255.255.x range
+  gitlab-runner:
+    image: 'gitlab/gitlab-runner:latest'
+    restart: always
+    depends_on:
+      - gitlab
+    volumes:
+      - './runner/config:/etc/gitlab-runner'
+      - '/var/run/docker.sock:/var/run/docker.sock'
+    environment:
+      - CI_SERVER_URL=https://git.exxo.top
+    networks:
+      gitlab_net:
+        ipv4_address: 10.255.255.21
 
 networks:
   gitlab_net:
