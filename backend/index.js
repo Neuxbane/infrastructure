@@ -3,6 +3,21 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const basicAuth = require('basic-auth');
+const fs = require('fs');
+const crypto = require('crypto');
+
+// Create a .env with credentials if it doesn't exist, then load it.
+const envPath = path.join(__dirname, '.env');
+if (!fs.existsSync(envPath)) {
+  const pass = crypto.randomBytes(8).toString('hex'); // 16 hex chars
+  const envContents = `AUTH_USER=root\nAUTH_PASS=${pass}\n`;
+  try {
+    fs.writeFileSync(envPath, envContents, { mode: 0o600 });
+    console.log('.env created with AUTH_USER=root and generated AUTH_PASS:', pass);
+  } catch (err) {
+    console.error('Failed to create .env file:', err);
+  }
+}
 require('dotenv').config();
 
 const dockerRoutes = require('./routes/docker');
@@ -13,9 +28,9 @@ const streamRoutes = require('./routes/streams');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Basic Auth Credentials
-const AUTH_USER = 'root';
-const AUTH_PASS = 'L+W/8Pl3pfFq4WIBsXSUJ+9ivH2wDsdhyQd1Rcl/bcQ=';
+// Basic Auth Credentials (from .env or defaults)
+const AUTH_USER = process.env.AUTH_USER || 'root';
+const AUTH_PASS = process.env.AUTH_PASS || crypto.randomBytes(8).toString('hex');
 
 // Basic Authentication Middleware
 const authenticate = (req, res, next) => {
